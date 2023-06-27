@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { Routes, Route, useNavigate } from "react-router-dom";
 import { v4 as uuid } from "uuid";
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
@@ -19,6 +20,7 @@ import {
 } from "react-firebase-hooks/firestore";
 import { BiSend } from "react-icons/bi";
 import { PiSignInBold } from "react-icons/pi";
+import { FaUserCircle } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
 import "./App.css";
 
@@ -31,24 +33,62 @@ const firebaseConfig = {
   appId: "1:972828551178:web:823d0843820f84f18e97f3",
   measurementId: "G-GQW3KQNN8X",
 };
-
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
 function App() {
   const [user] = useAuthState(auth);
+  const navigate = useNavigate();
   return (
-    <div className="Main">
-      <section>{user ? <ChatRoom /> : <SignIn />}</section>
-    </div>
+    <Routes>
+      <Route
+        path="/"
+        element={
+          <div className="Main">
+            <section>
+              <SignIn />
+            </section>
+          </div>
+        }
+      />
+      <Route
+        path="/ChatRoom"
+        element={
+          <div className="Main">
+            <section>{user ? <ChatRoom /> : <></>}</section>
+          </div>
+        }
+      />
+      <Route
+        path="/AccountInfo"
+        element={
+          <div className="Main">
+            {user ? (
+              <>
+                <section>
+                  <SignOut />
+                </section>
+                <div>
+                  <AccountInfo />
+                </div>
+              </>
+            ) : (
+              <></>
+            )}
+          </div>
+        }
+      />
+    </Routes>
   );
 }
 function SignIn() {
+  const navigate = useNavigate();
   const signInWithGoogle = () => {
     const provider = new GoogleAuthProvider();
     signInWithPopup(auth, provider).then((result) => {
       const username = result.user;
+      navigate("/ChatRoom");
     });
   };
   return (
@@ -63,14 +103,22 @@ function SignIn() {
   );
 }
 function SignOut() {
+  const navigate = useNavigate();
   const signInOutGoogle = () => {
     auth.signOut();
+    navigate("/");
+  };
+  const openAccountInfo = () => {
+    navigate("/AccountInfo");
   };
   return (
     <>
       <div className="container-signout">
+        <button onClick={openAccountInfo}>
+          <FaUserCircle />
+        </button>
         <button onClick={signInOutGoogle}>
-          <PiSignInBold /> Sign out
+          <PiSignInBold />
         </button>
       </div>
     </>
@@ -78,7 +126,7 @@ function SignOut() {
 }
 function ChatRoom() {
   const messagesRef = collection(db, "messages");
-  const queryRef = query(messagesRef, orderBy("createdAt"), limit(25));
+  const queryRef = query(messagesRef, orderBy("createdAt","desc"), limit(25));
   const [messages] = useCollectionData(queryRef, { idField: "id" });
   const [formValue, setFormValue] = useState("");
   const endOfChat = useRef();
@@ -122,7 +170,6 @@ function ChatRoom() {
   );
 }
 function ChatMessage({ message }) {
-  console.log(message);
   const { text, uid, user } = message;
   const messageClass = uid === auth.currentUser.uid ? "sent" : "recieved";
   return (
@@ -131,6 +178,11 @@ function ChatMessage({ message }) {
       <p>{text}</p>
     </div>
   );
+}
+function AccountInfo() {
+  useEffect(() => {
+    console.log(auth);
+  }, []);
 }
 
 export default App;

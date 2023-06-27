@@ -1,3 +1,11 @@
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
 .Main {
   display: flex;
   width: 100%;
@@ -39,11 +47,6 @@ h1 {
   align-items: center;
   font-size: 2vh;
   font-weight: bold;
-}
-.container-signin > button > svg {
-  pointer-events: none;
-  margin-left: 3%;
-  font-size: 3vh;
 }
 .container-signout {
   display: flex;
@@ -88,30 +91,49 @@ form {
 form > input {
   border: none;
   border-radius: 3vh 0vh 0 3vh;
-  padding: 1vh 1vh 1vh 2vh;
+  padding: 1vh 5.5vh 1vh 3vh;
   margin: 0;
-  height: initial;
-  width: 55%;
+  height: 3vh;
+  width: 50%;
 }
 form > input:focus-visible {
   border: none;
   outline: none;
 }
 form > button {
+  position: fixed;
+  transition: width 0.25s, padding 0.25s;
   display: flex;
   text-align: center;
   font-size: 2.5vh;
-  width: 5vh;
+  width: 0vh;
   background: rgb(19, 210, 191);
   border: none;
-  padding: 1vh;
+  padding: 1vh 0vh;
   margin: 0;
   color: white;
   justify-content: center;
   height: 5vh;
 }
+button:hover {
+  cursor: pointer;
+}
 button:hover > svg {
   animation: move 1s infinite both forwards;
+}
+form > button > svg {
+  transition: opacity 0.3s;
+  pointer-events: none;
+  margin-left: 3%;
+  font-size: 3vh;
+  position: absolute;
+}
+form > button > svg:nth-child(1) {
+  opacity: 1;
+}
+form > button > svg:nth-child(2) {
+  opacity: 0;
+  animation: spin .4s linear infinite;
 }
 .sent {
   height: fit-content;
@@ -142,15 +164,14 @@ p {
   background: white;
   width: fit-content;
   max-width: 40%;
+  padding: 1vh 2vh 1.5vh 2vh;
   font-size: 1.7vh;
 }
 .sent > p {
   border-radius: 1vh 1vh 0vh 1vh;
-  padding: 1vh 2vh 2vh 2vh;
 }
 .recieved > p {
   border-radius: 0vh 1vh 1vh 1vh;
-  padding: 1vh 2vh 2vh 2vh;
 }
 .div-messages {
   margin-bottom: 3vh;

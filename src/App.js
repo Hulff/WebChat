@@ -21,6 +21,7 @@ import {
 import { BiSend } from "react-icons/bi";
 import { PiSignInBold } from "react-icons/pi";
 import { FaUserCircle } from "react-icons/fa";
+import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import { FcGoogle } from "react-icons/fc";
 import "./App.css";
 
@@ -39,7 +40,6 @@ const db = getFirestore(app);
 
 function App() {
   const [user] = useAuthState(auth);
-  const navigate = useNavigate();
   return (
     <Routes>
       <Route
@@ -87,7 +87,6 @@ function SignIn() {
   const signInWithGoogle = () => {
     const provider = new GoogleAuthProvider();
     signInWithPopup(auth, provider).then((result) => {
-      const username = result.user;
       navigate("/ChatRoom");
     });
   };
@@ -126,44 +125,61 @@ function SignOut() {
 }
 function ChatRoom() {
   const messagesRef = collection(db, "messages");
-  const queryRef = query(messagesRef, orderBy("createdAt","desc"), limit(25));
+  const queryRef = query(messagesRef, orderBy("createdAt", "desc"), limit(25));
   const [messages] = useCollectionData(queryRef, { idField: "id" });
   const [formValue, setFormValue] = useState("");
   const endOfChat = useRef();
+  const btnSend = useRef();
 
   const sendMessage = async (e) => {
-    let textvl = formValue;
     const uid = auth.currentUser.uid;
-    console.log(auth);
+    btnSend.current.children[0].style.opacity = "0";
+    btnSend.current.children[1].style.opacity = "1";
     e.preventDefault();
-    setFormValue("");
     await addDoc(messagesRef, {
-      text: textvl,
+      text: formValue,
       createdAt: serverTimestamp(),
       uid,
       user: auth.currentUser.displayName,
     });
+    //hide send button
+    btnSend.current.children[0].style.opacity = "1";
+    btnSend.current.children[1].style.opacity = "0";
+    btnSend.current.style.width = "0vh";
+    btnSend.current.style.padding = "1vh 0vh";
+    setFormValue("");
     endOfChat.current.scrollIntoView({ behavior: "smooth", block: "end" });
+  };
+  const handleInputMsgChange = (e) => {
+    setFormValue(e.target.value);
+    //show send button
+    if (e.target.value.length == 0) {
+      btnSend.current.style.width = "0vh";
+      btnSend.current.style.padding = "1vh 0vh";
+      return;
+    }
+    btnSend.current.style.width = "5vh";
+    btnSend.current.style.padding = "1vh 1vh";
   };
 
   return (
     <>
       <SignOut />
       <div className="div-messages">
+        <div ref={endOfChat}></div>
         {messages &&
           messages.map((msg) => <ChatMessage key={uuid()} message={msg} />)}
-
-        <div ref={endOfChat}></div>
       </div>
       <form onSubmit={sendMessage}>
         <input
           placeholder="Type here! :)"
           type="text"
-          onChange={(e) => setFormValue(e.target.value)}
+          onChange={handleInputMsgChange}
           value={formValue}
         />
-        <button type="submit">
+        <button ref={btnSend} type="submit">
           <BiSend />
+          <AiOutlineLoading3Quarters />
         </button>
       </form>
     </>

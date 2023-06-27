@@ -6,7 +6,6 @@ import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import {
   getFirestore,
   collection,
-  getDocs,
   orderBy,
   limit,
   query,
@@ -14,10 +13,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { useAuthState } from "react-firebase-hooks/auth";
-import {
-  useCollection,
-  useCollectionData,
-} from "react-firebase-hooks/firestore";
+import { useCollectionData } from "react-firebase-hooks/firestore";
 import { BiSend } from "react-icons/bi";
 import { PiSignInBold } from "react-icons/pi";
 import { FaUserCircle } from "react-icons/fa";
@@ -126,10 +122,17 @@ function SignOut() {
 function ChatRoom() {
   const messagesRef = collection(db, "messages");
   const queryRef = query(messagesRef, orderBy("createdAt", "desc"), limit(25));
-  const [messages] = useCollectionData(queryRef, { idField: "id" });
+  const [messages, loading] = useCollectionData(queryRef, { idField: "id" });
+  const [chatHeight, setHeight] = useState("30vh");
   const [formValue, setFormValue] = useState("");
   const endOfChat = useRef();
   const btnSend = useRef();
+  useEffect(() => {
+    if (loading) {
+    } else {
+      setHeight("67vh");
+    }
+  }, [loading]);
 
   const sendMessage = async (e) => {
     const uid = auth.currentUser.uid;
@@ -166,9 +169,23 @@ function ChatRoom() {
     <>
       <SignOut />
       <div className="div-messages">
-        <div ref={endOfChat}></div>
-        {messages &&
-          messages.map((msg) => <ChatMessage key={uuid()} message={msg} />)}
+        <div className="chat" style={{ "--start-height": `${chatHeight}` }}>
+          {loading ? (
+            <div className="loading-indicator">
+              <AiOutlineLoading3Quarters />
+            </div>
+          ) : (
+            <>
+              <div className="loaded-indicator">
+                <div ref={endOfChat}></div>
+                {messages &&
+                  messages.map((msg) => (
+                    <ChatMessage key={uuid()} message={msg} />
+                  ))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
       <form onSubmit={sendMessage}>
         <input
@@ -199,6 +216,11 @@ function AccountInfo() {
   useEffect(() => {
     console.log(auth);
   }, []);
+  return (
+    <>
+      <div></div>
+    </>
+  );
 }
 
 export default App;

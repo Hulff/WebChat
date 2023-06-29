@@ -9,15 +9,18 @@ import {
   orderBy,
   limit,
   query,
+  getDoc,
+  doc,
   addDoc,
+  setDoc,
   serverTimestamp,
 } from "firebase/firestore";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { useCollectionData } from "react-firebase-hooks/firestore";
 import { BiSend } from "react-icons/bi";
 import { PiSignInBold } from "react-icons/pi";
-import { FaUserCircle } from "react-icons/fa";
-import { AiOutlineLoading3Quarters } from "react-icons/ai";
+import { FiCopy } from "react-icons/fi";
+import { AiOutlineLoading3Quarters, AiOutlineUser } from "react-icons/ai";
 import { FcGoogle } from "react-icons/fc";
 import "./App.css";
 
@@ -36,6 +39,22 @@ const db = getFirestore(app);
 
 function App() {
   const [user] = useAuthState(auth);
+  const [userIdentifier, setUserIdentifier] = useState(null);
+  useEffect(() => {
+    const setUserData = async () => {
+      const usersCollection = collection(db, "users");
+      const userDocRef = doc(usersCollection, auth.currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
+      if (userDoc.exists()) {
+        // User already exists, do not create a new document
+        setUserIdentifier(userDoc.data().identifier);
+        return;
+      }
+    };
+    if (user) {
+      setUserData();
+    }
+  }, [user]);
   return (
     <Routes>
       <Route
@@ -43,7 +62,7 @@ function App() {
         element={
           <div className="Main">
             <section>
-              <SignIn />
+              <SignIn setUserIdentifier={setUserIdentifier} />
             </section>
           </div>
         }
@@ -52,7 +71,17 @@ function App() {
         path="/ChatRoom"
         element={
           <div className="Main">
-            <section>{user ? <ChatRoom /> : <></>}</section>
+            <section>
+              {user ? (
+                <ChatRoom />
+              ) : (
+                <>
+                  <div className="loading-indicator">
+                    <AiOutlineLoading3Quarters />
+                  </div>
+                </>
+              )}
+            </section>
           </div>
         }
       />
@@ -64,10 +93,8 @@ function App() {
               <>
                 <section>
                   <SignOut />
+                  <AccountInfo userIdentifier={userIdentifier} />
                 </section>
-                <div>
-                  <AccountInfo />
-                </div>
               </>
             ) : (
               <></>
@@ -78,13 +105,54 @@ function App() {
     </Routes>
   );
 }
-function SignIn() {
+function SignIn({ setUserIdentifier }) {
   const navigate = useNavigate();
+  const usersCollection = collection(db, "users");
+  const generateRandomCode = (length) => {
+    const characters =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let code = "";
+
+    for (let i = 0; i < length; i++) {
+      const randomIndex = Math.floor(Math.random() * characters.length);
+      code += characters[randomIndex];
+    }
+
+    return code;
+  };
+  const createUser = async () => {
+    const userDocRef = doc(usersCollection, auth.currentUser.uid);
+    try {
+      const userDoc = await getDoc(userDocRef);
+      if (userDoc.exists()) {
+        // User already exists, do not create a new document
+        setUserIdentifier(userDoc.data().identifier);
+        return;
+      }
+      let userData = {
+        name: auth.currentUser.displayName,
+        email: auth.currentUser.email,
+        uid: auth.currentUser.uid,
+        identifier: "@" + generateRandomCode(10),
+      };
+      await setDoc(userDocRef, userData);
+      setUserIdentifier(userData.identifier);
+      console.log("User created successfully");
+    } catch (error) {
+      console.error("Error creating user: ", error);
+    }
+  };
   const signInWithGoogle = () => {
     const provider = new GoogleAuthProvider();
-    signInWithPopup(auth, provider).then((result) => {
-      navigate("/ChatRoom");
-    });
+    signInWithPopup(auth, provider)
+      .then((result) => {
+        createUser().then(() => {
+          navigate("/ChatRoom");
+        });
+      })
+      .catch((err) => {
+        console.log(err);
+      });
   };
   return (
     <>
@@ -110,7 +178,7 @@ function SignOut() {
     <>
       <div className="container-signout">
         <button onClick={openAccountInfo}>
-          <FaUserCircle />
+          <AiOutlineUser />
         </button>
         <button onClick={signInOutGoogle}>
           <PiSignInBold />
@@ -139,6 +207,7 @@ function ChatRoom() {
     btnSend.current.children[0].style.opacity = "0";
     btnSend.current.children[1].style.opacity = "1";
     e.preventDefault();
+    setFormValue("");
     await addDoc(messagesRef, {
       text: formValue,
       createdAt: serverTimestamp(),
@@ -150,7 +219,6 @@ function ChatRoom() {
     btnSend.current.children[1].style.opacity = "0";
     btnSend.current.style.width = "0vh";
     btnSend.current.style.padding = "1vh 0vh";
-    setFormValue("");
     endOfChat.current.scrollIntoView({ behavior: "smooth", block: "end" });
   };
   const handleInputMsgChange = (e) => {
@@ -212,13 +280,44 @@ function ChatMessage({ message }) {
     </div>
   );
 }
-function AccountInfo() {
+function AccountInfo({ userIdentifier }) {
   useEffect(() => {
     console.log(auth);
   }, []);
+  const idInput = useRef();
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(idInput.current.innerText);
+  };
   return (
     <>
-      <div></div>
+      <div className="container-account">
+        {userIdentifier ? (
+          <>
+            <div className="container-account-header">
+              <AiOutlineUser />
+            </div>
+            <div className="container-account-img">
+              <img src={auth.currentUser.photoURL} />
+            </div>
+            <div className="container-account-info">
+              <h4 ref={idInput}>
+                {userIdentifier}
+                <button onClick={copyToClipboard}>
+                  <FiCopy />
+                </button>
+              </h4>
+              <h2>{auth.currentUser.displayName}</h2>
+              <h3>{auth.currentUser.email}</h3>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="loading-indicator">
+              <AiOutlineLoading3Quarters />
+            </div>
+          </>
+        )}
+      </div>
     </>
   );
 }

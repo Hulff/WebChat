@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Routes, Route, useNavigate } from "react-router-dom";
 import { v4 as uuid } from "uuid";
 import { initializeApp } from "firebase/app";
+import { getMessaging, getToken, onMessage } from "firebase/messaging";
 import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import {
   getFirestore,
@@ -36,8 +37,15 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const messaging = getMessaging(app);
+//FCM
+onMessage(messaging, (payload) => {
+  console.log("Message received. ", payload);
+  // ...
+});
 
 function App() {
+  const navigate = useNavigate();
   const [user] = useAuthState(auth);
   const [userIdentifier, setUserIdentifier] = useState(null);
   useEffect(() => {
@@ -53,6 +61,21 @@ function App() {
     };
     if (user) {
       setUserData();
+      const requestPermission = async () => {
+        console.log("Requesting permission...");
+        const permission = await Notification.requestPermission();
+        if (permission === "granted") {
+          console.log("Notification permission granted.");
+          const token = await getToken(messaging, {
+            vapidKey:
+              "BHuwPIul-ltZTfi1aFuhOoIQGy7hScpNmLyTaFkX00qtXsQ6oxzHVHiY-yrPV0dD1SK4uwN2ps3A8NCyjX95A3Y",
+          });
+          console.log(`Token:${token}`);
+        } else {
+          console.log("Notification permission not granted.");
+        }
+      };
+      requestPermission();
     }
   }, [user]);
   return (
@@ -62,7 +85,13 @@ function App() {
         element={
           <div className="Main">
             <section>
-              <SignIn setUserIdentifier={setUserIdentifier} />
+              {user ? (
+                <Menu />
+              ) : (
+                <>
+                  <SignIn user={user} setUserIdentifier={setUserIdentifier} />
+                </>
+              )}
             </section>
           </div>
         }
@@ -105,8 +134,19 @@ function App() {
     </Routes>
   );
 }
-function SignIn({ setUserIdentifier }) {
+function Menu({}) {
   const navigate = useNavigate();
+  return (
+    <>
+      <ul>
+        <li>
+          <button onClick={() => navigate("chatRoom")}>Global</button>
+        </li>
+      </ul>
+    </>
+  );
+}
+function SignIn({ setUserIdentifier, user }) {
   const usersCollection = collection(db, "users");
   const generateRandomCode = (length) => {
     const characters =
@@ -146,9 +186,7 @@ function SignIn({ setUserIdentifier }) {
     const provider = new GoogleAuthProvider();
     signInWithPopup(auth, provider)
       .then((result) => {
-        createUser().then(() => {
-          navigate("/ChatRoom");
-        });
+        createUser();
       })
       .catch((err) => {
         console.log(err);
@@ -188,13 +226,97 @@ function SignOut() {
   );
 }
 function ChatRoom() {
-  const messagesRef = collection(db, "messages");
+  const messagesRef = collection(db, "messageData", "messages", "Global");
   const queryRef = query(messagesRef, orderBy("createdAt", "desc"), limit(25));
   const [messages, loading] = useCollectionData(queryRef, { idField: "id" });
   const [chatHeight, setHeight] = useState("30vh");
   const [formValue, setFormValue] = useState("");
   const endOfChat = useRef();
   const btnSend = useRef();
+
+  useEffect(() => {
+    if (loading) {
+    } else {
+      setHeight("67vh");
+    }
+  }, [loading]);
+  const sendMessage = async (e) => {
+    const uid = auth.currentUser.uid;
+    btnSend.current.children[0].style.opacity = "0";
+    btnSend.current.children[1].style.opacity = "1";
+    e.preventDefault();
+    setFormValue("");
+    await addDoc(messagesRef, {
+      text: formValue,
+      createdAt: serverTimestamp(),
+      uid,
+      user: auth.currentUser.displayName,
+    });
+    //hide send button
+    btnSend.current.children[0].style.opacity = "1";
+    btnSend.current.children[1].style.opacity = "0";
+    btnSend.current.style.width = "0vh";
+    btnSend.current.style.padding = "1vh 0vh";
+    endOfChat.current.scrollIntoView({ behavior: "smooth", block: "end" });
+  };
+  const handleInputMsgChange = (e) => {
+    setFormValue(e.target.value);
+    //show send button
+    if (e.target.value.length == 0) {
+      btnSend.current.style.width = "0vh";
+      btnSend.current.style.padding = "1vh 0vh";
+      return;
+    }
+    btnSend.current.style.width = "5vh";
+    btnSend.current.style.padding = "1vh 1vh";
+  };
+
+  return (
+    <>
+      <SignOut />
+      <div className="div-messages">
+        <div className="chat" style={{ "--start-height": `${chatHeight}` }}>
+          {loading ? (
+            <div className="loading-indicator">
+              <AiOutlineLoading3Quarters />
+            </div>
+          ) : (
+            <>
+              <div className="loaded-indicator">
+                <div ref={endOfChat}></div>
+                {messages &&
+                  messages.map((msg) => (
+                    <ChatMessage key={uuid()} message={msg} />
+                  ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+      <form onSubmit={sendMessage}>
+        <input
+          placeholder="Type here! :)"
+          type="text"
+          onChange={handleInputMsgChange}
+          value={formValue}
+        />
+        <button ref={btnSend} type="submit">
+          <BiSend />
+          <AiOutlineLoading3Quarters />
+        </button>
+      </form>
+    </>
+  );
+}
+function PrivateChatRoom({ chatID }) {
+  const messagesRef = collection(db, "messageData", "messages", chatID);
+  const queryRef = query(messagesRef, orderBy("createdAt", "desc"), limit(25));
+  const [messages, loading] = useCollectionData(queryRef, { idField: "id" });
+  const [chatHeight, setHeight] = useState("30vh");
+  const [formValue, setFormValue] = useState("");
+  const endOfChat = useRef();
+  const btnSend = useRef();
+
   useEffect(() => {
     if (loading) {
     } else {

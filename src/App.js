@@ -3,7 +3,12 @@ import { Routes, Route, useNavigate } from "react-router-dom";
 import { v4 as uuid } from "uuid";
 import { initializeApp } from "firebase/app";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
-import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import {
+  deleteUser,
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+} from "firebase/auth";
 import {
   getFirestore,
   collection,
@@ -15,13 +20,20 @@ import {
   addDoc,
   setDoc,
   serverTimestamp,
+  deleteDoc,
 } from "firebase/firestore";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { useCollectionData } from "react-firebase-hooks/firestore";
 import { BiSend } from "react-icons/bi";
 import { PiSignInBold } from "react-icons/pi";
 import { FiCopy } from "react-icons/fi";
-import { AiOutlineLoading3Quarters, AiOutlineUser } from "react-icons/ai";
+import {
+  AiOutlineLoading3Quarters,
+  AiOutlineUserAdd,
+  AiOutlineUserDelete,
+  AiOutlineUser,
+} from "react-icons/ai";
+import { TbArrowBackUp } from "react-icons/tb";
 import { FcGoogle } from "react-icons/fc";
 import "./App.css";
 
@@ -47,20 +59,23 @@ onMessage(messaging, (payload) => {
 function App() {
   const navigate = useNavigate();
   const [user, loading] = useAuthState(auth);
-  const [userIdentifier, setUserIdentifier] = useState(null);
+  const [userData, setUserData] = useState(null);
+  const section = useRef();
+  const popup = useRef();
+  const setUserDbData = async () => {
+    const usersCollection = collection(db, "users");
+    const userDocRef = doc(usersCollection, auth.currentUser.uid);
+    const userDoc = await getDoc(userDocRef);
+    if (userDoc.exists()) {
+      // User already exists, do not create a new document
+      console.log(userDoc.data());
+      setUserData(userDoc.data());
+      return;
+    }
+  };
   useEffect(() => {
-    const setUserData = async () => {
-      const usersCollection = collection(db, "users");
-      const userDocRef = doc(usersCollection, auth.currentUser.uid);
-      const userDoc = await getDoc(userDocRef);
-      if (userDoc.exists()) {
-        // User already exists, do not create a new document
-        setUserIdentifier(userDoc.data().identifier);
-        return;
-      }
-    };
     if (user) {
-      setUserData();
+      setUserDbData();
       const requestPermission = async () => {
         console.log("Requesting permission...");
         const permission = await Notification.requestPermission();
@@ -89,7 +104,7 @@ function App() {
                 <Menu />
               ) : (
                 <>
-                  <SignIn user={user} setUserIdentifier={setUserIdentifier} />
+                  <SignIn user={user} setUserData={setUserData} setUserDbData={setUserDbData }  />
                 </>
               )}
             </section>
@@ -120,10 +135,20 @@ function App() {
           <div className="Main">
             {user ? (
               <>
-                <section>
+                <section ref={section}>
                   <SignOut />
-                  <AccountInfo userIdentifier={userIdentifier} />
+                  <AccountInfo
+                    userData={userData}
+                    section={section}
+                    popup={popup}
+                  />
                 </section>
+                <PopUp
+                  section={section}
+                  divRef={popup}
+                  userData={userData}
+                  setUserData={setUserData}
+                ></PopUp>
               </>
             ) : (
               <></>
@@ -146,7 +171,7 @@ function Menu({}) {
     </>
   );
 }
-function SignIn({ setUserIdentifier, user }) {
+function SignIn({ setUserDbData ,setUserData, user }) {
   const usersCollection = collection(db, "users");
   const generateRandomCode = (length) => {
     const characters =
@@ -166,7 +191,7 @@ function SignIn({ setUserIdentifier, user }) {
       const userDoc = await getDoc(userDocRef);
       if (userDoc.exists()) {
         // User already exists, do not create a new document
-        setUserIdentifier(userDoc.data().identifier);
+        setUserData(userDoc.data());
         return;
       }
       let userData = {
@@ -178,7 +203,7 @@ function SignIn({ setUserIdentifier, user }) {
         createdAt: serverTimestamp(),
       };
       await setDoc(userDocRef, userData);
-      setUserIdentifier(userData.identifier);
+      setUserDbData() 
       console.log("User created successfully");
     } catch (error) {
       console.error("Error creating user: ", error);
@@ -404,18 +429,23 @@ function ChatMessage({ message }) {
     </div>
   );
 }
-function AccountInfo({ userIdentifier }) {
+function AccountInfo({ userData, section, popup }) {
   useEffect(() => {
-    console.log(auth);
-  }, []);
+    console.log(userData);
+  });
   const idInput = useRef();
   const copyToClipboard = () => {
     navigator.clipboard.writeText(idInput.current.innerText);
   };
+  const openDeletePopUp = () => {
+    section.current.style.filter = "blur(2px)";
+    popup.current.style.opacity = "1";
+    popup.current.style.pointerEvents = "all";
+  };
   return (
     <>
       <div className="container-account">
-        {userIdentifier ? (
+        {userData ? (
           <>
             <div className="container-account-header">
               <AiOutlineUser />
@@ -425,13 +455,31 @@ function AccountInfo({ userIdentifier }) {
             </div>
             <div className="container-account-info">
               <h4 ref={idInput}>
-                {userIdentifier}
+                {userData.identifier}
                 <button onClick={copyToClipboard}>
                   <FiCopy />
                 </button>
               </h4>
               <h2>{auth.currentUser.displayName}</h2>
               <h3>{auth.currentUser.email}</h3>
+              <div className="container-account-created">
+                <div>
+                  <AiOutlineUserAdd />
+                </div>
+                <h3>Criada em</h3>
+                <h3>{` ${userData.createdAt
+                  .toDate()
+                  .toLocaleDateString()}`}</h3>
+              </div>
+              <div
+                onClick={openDeletePopUp}
+                className="container-account-delete"
+              >
+                <div>
+                  <AiOutlineUserDelete />
+                </div>
+                <h3>Deletar a conta</h3>
+              </div>
             </div>
           </>
         ) : (
@@ -442,6 +490,72 @@ function AccountInfo({ userIdentifier }) {
           </>
         )}
       </div>
+    </>
+  );
+}
+function PopUp({ userData, divRef, section, setUserData }) {
+  const navigate = useNavigate();
+  const btnDelete = useRef();
+  const closePopUp = () => {
+    section.current.style.filter = "blur(0px)";
+    divRef.current.style.opacity = "0";
+    divRef.current.style.pointerEvents = "none";
+  };
+  const deleteAccount = async () => {
+    console.log("delete account");
+    const usersCollection = collection(db, "users");
+    const userDocRef = doc(usersCollection, auth.currentUser.uid);
+    await deleteDoc(userDocRef)
+      .then(() => {
+        closePopUp();
+        deleteUser(auth.currentUser)
+          .then(() => {
+            setUserData(null);
+            navigate("/");
+          })
+          .catch((error) => {
+            // An error ocurred
+            // ...
+          });
+      })
+      .catch((error) => {
+        console.error("Error deleting user document:", error);
+      });
+  };
+  const handleInputDeleteChange = (e) => {
+    if (e.target.value === userData.identifier) {
+      console.log("Available");
+      btnDelete.current.disabled = false;
+      btnDelete.current.addEventListener("click", deleteAccount);
+    } else {
+      console.log("Not available");
+      btnDelete.current.disabled = true;
+      btnDelete.current.removeEventListener("click", deleteAccount);
+    }
+  };
+  return (
+    <>
+      {userData ? (
+        <>
+          <div ref={divRef} className="account-delete-popup">
+            <button onClick={closePopUp}>
+              <TbArrowBackUp />
+            </button>
+            <h1>Tem certeza que quer deletar sua conta?</h1>
+            <h2>{`caso queira preencha abaixo eu seu id ${userData.identifier}`}</h2>
+            <input
+              onChange={handleInputDeleteChange}
+              type="text"
+              placeholder={userData.identifier}
+            />
+            <button disabled={!btnDelete.current} ref={btnDelete}>
+              Deletar
+            </button>
+          </div>
+        </>
+      ) : (
+        <></>
+      )}
     </>
   );
 }

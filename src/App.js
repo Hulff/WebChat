@@ -46,7 +46,7 @@ onMessage(messaging, (payload) => {
 
 function App() {
   const navigate = useNavigate();
-  const [user] = useAuthState(auth);
+  const [user,loading] = useAuthState(auth);
   const [userIdentifier, setUserIdentifier] = useState(null);
   useEffect(() => {
     const setUserData = async () => {
@@ -174,6 +174,7 @@ function SignIn({ setUserIdentifier, user }) {
         email: auth.currentUser.email,
         uid: auth.currentUser.uid,
         identifier: "@" + generateRandomCode(10),
+        chats: ["Global"],
       };
       await setDoc(userDocRef, userData);
       setUserIdentifier(userData.identifier);

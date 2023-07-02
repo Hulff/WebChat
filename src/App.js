@@ -399,7 +399,7 @@ function ChatMessage({ message }) {
   return (
     <div className={messageClass}>
       <h2>{user}</h2>
-      <p>{text}</p>
+      <p translate="no">{text}</p>
     </div>
   );
 }

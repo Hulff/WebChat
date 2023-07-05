@@ -1,5 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import { Routes, Route, useNavigate } from "react-router-dom";
+import {
+  Routes,
+  Route,
+  useNavigate,
+  useLocation,
+  useParams,
+} from "react-router-dom";
 import { v4 as uuid } from "uuid";
 import { initializeApp } from "firebase/app";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
@@ -10,14 +16,18 @@ import {
   signInWithPopup,
 } from "firebase/auth";
 import {
+  onSnapshot,
   getFirestore,
   collection,
   orderBy,
   limit,
   query,
   getDoc,
+  getDocs,
+  where,
   doc,
   addDoc,
+  updateDoc,
   setDoc,
   serverTimestamp,
   deleteDoc,
@@ -25,8 +35,14 @@ import {
 import { useAuthState } from "react-firebase-hooks/auth";
 import { useCollectionData } from "react-firebase-hooks/firestore";
 import { BiSend } from "react-icons/bi";
-import { PiSignInBold } from "react-icons/pi";
-import { FiCopy } from "react-icons/fi";
+import {
+  PiSignInBold,
+  PiUsersThree,
+  PiUsersBold,
+  PiUserBold,
+  PiChatDotsLight,
+} from "react-icons/pi";
+import { FiCopy, FiArrowLeft } from "react-icons/fi";
 import {
   AiOutlineLoading3Quarters,
   AiOutlineUserAdd,
@@ -34,7 +50,9 @@ import {
   AiOutlineUser,
 } from "react-icons/ai";
 import { TbArrowBackUp } from "react-icons/tb";
+import { BiExpandVertical } from "react-icons/bi";
 import { FcGoogle } from "react-icons/fc";
+import { FaBars, FaArrowLeft } from "react-icons/fa";
 import "./App.css";
 
 const firebaseConfig = {
@@ -60,19 +78,84 @@ function App() {
   const navigate = useNavigate();
   const [user, loading] = useAuthState(auth);
   const [userData, setUserData] = useState(null);
+  const [userInfo, setUserInfo] = useState(null);
   const section = useRef();
+  const sectionChatRoom = useRef();
   const popup = useRef();
+  const userPopup = useRef();
   const setUserDbData = async () => {
     const usersCollection = collection(db, "users");
     const userDocRef = doc(usersCollection, auth.currentUser.uid);
-    const userDoc = await getDoc(userDocRef);
-    if (userDoc.exists()) {
-      // User already exists, do not create a new document
+    const unsubscribe = onSnapshot(userDocRef, (doc) => {
+      if (doc.exists()) {
+        setUserData(doc.data());
+      } else {
+        setUserData(null);
+      }
+    });
+
+    return unsubscribe; // Retorna uma função para cancelar a inscrição do listener
+  };
+
+  // ...
+
+  useEffect(() => {
+    if (user) {
+      const unsubscribe = setUserDbData();
+    }
+  }, [user]);
+  const closePopUp = () => {
+    sectionChatRoom.current.style.filter = "blur(0px)";
+    userPopup.current.style.opacity = "0";
+    userPopup.current.style.pointerEvents = "none";
+  };
+  const getUserInfo = async (id) => {
+    setUserInfo(null);
+    console.log(id);
+    const usersCollection = collection(db, "users");
+    const querySnapshot = await getDocs(
+      query(usersCollection, where("identifier", "==", id))
+    );
+
+    if (!querySnapshot.empty) {
+      const userDoc = querySnapshot.docs[0];
       console.log(userDoc.data());
-      setUserData(userDoc.data());
+      setUserInfo(userDoc.data());
+    } else {
+      console.log("User document not found");
+      closePopUp();
       return;
     }
   };
+  const startChat = async () => {
+    let roomId = uuid();
+    const usersCollection = collection(db, "users");
+    const userDocRef = doc(usersCollection, userData.uid);
+    const anotherUserDocRef = doc(usersCollection, userInfo.uid);
+    await updateDoc(userDocRef, {
+      chats: {
+        ...userData.chats,
+        [`${roomId}`]: {
+          name: `conversa com ${userInfo.name}`,
+          room: roomId,
+        },
+      },
+    }).then(async () => {
+      await updateDoc(anotherUserDocRef, {
+        chats: {
+          ...userInfo.chats,
+          [`${roomId}`]: {
+            name: `conversa com ${userData.name}`,
+            room: roomId,
+          },
+        },
+      }).then(() => {
+        closePopUp();
+        navigate("/");
+      });
+    });
+  };
+
   useEffect(() => {
     if (user) {
       setUserDbData();
@@ -100,11 +183,18 @@ function App() {
         element={
           <div className="Main">
             <section>
-              {user ? (
-                <Menu />
+              {user && userData ? (
+                <>
+                  <NavBar />
+                  <Menu userData={userData} />
+                </>
               ) : (
                 <>
-                  <SignIn user={user} setUserData={setUserData} setUserDbData={setUserDbData }  />
+                  <SignIn
+                    user={user}
+                    setUserData={setUserData}
+                    setUserDbData={setUserDbData}
+                  />
                 </>
               )}
             </section>
@@ -115,9 +205,47 @@ function App() {
         path="/ChatRoom"
         element={
           <div className="Main">
+            <section ref={sectionChatRoom}>
+              {user && userData ? (
+                <>
+                  <NavBar />
+
+                  <ChatRoom
+                    getUserInfo={getUserInfo}
+                    section={sectionChatRoom}
+                    popup={userPopup}
+                    userData={userData}
+                  />
+                </>
+              ) : (
+                <>
+                  <div className="loading-indicator">
+                    <AiOutlineLoading3Quarters />
+                  </div>
+                </>
+              )}
+            </section>
+            <UserInfoPopUp
+              section={sectionChatRoom}
+              divRef={userPopup}
+              userInfo={userInfo}
+              userData={userData}
+              setUserData={setUserData}
+              startChat={startChat}
+            />
+          </div>
+        }
+      />
+      <Route
+        path="/PrivateChatRoom"
+        element={
+          <div className="Main">
             <section>
-              {user ? (
-                <ChatRoom />
+              {user && userData ? (
+                <>
+                  <NavBar />
+                  <PrivateRoom userData={userData} />
+                </>
               ) : (
                 <>
                   <div className="loading-indicator">
@@ -133,10 +261,10 @@ function App() {
         path="/AccountInfo"
         element={
           <div className="Main">
-            {user ? (
+            {user && userData ? (
               <>
                 <section ref={section}>
-                  <SignOut />
+                  <NavBar />
                   <AccountInfo
                     userData={userData}
                     section={section}
@@ -159,19 +287,56 @@ function App() {
     </Routes>
   );
 }
-function Menu({}) {
+function Menu({ userData }) {
   const navigate = useNavigate();
   return (
     <>
-      <ul>
-        <li>
-          <button onClick={() => navigate("chatRoom")}>Global</button>
-        </li>
-      </ul>
+      <div className={"menu"}>
+        <button>
+          <PiUsersThree />
+          Group Chats
+        </button>
+        <ul>
+          {Object.keys(userData.groupChats).map((key) => (
+            <li key={uuid()}>
+              <button
+                onClick={() =>
+                  navigate("chatRoom", {
+                    state: { room: userData.groupChats[key].room },
+                  })
+                }
+              >
+                {userData.groupChats[key].name}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className={"menu"}>
+        <button>
+          <PiUsersBold />
+          Chats
+        </button>
+        <ul>
+          {Object.keys(userData.chats).map((key) => (
+            <li key={uuid()}>
+              <button
+                onClick={() =>
+                  navigate("PrivateChatRoom", {
+                    state: { room: userData.chats[key].room },
+                  })
+                }
+              >
+                {userData.chats[key].name}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
     </>
   );
 }
-function SignIn({ setUserDbData ,setUserData, user }) {
+function SignIn({ setUserDbData, setUserData, user }) {
   const usersCollection = collection(db, "users");
   const generateRandomCode = (length) => {
     const characters =
@@ -199,11 +364,12 @@ function SignIn({ setUserDbData ,setUserData, user }) {
         email: auth.currentUser.email,
         uid: auth.currentUser.uid,
         identifier: "@" + generateRandomCode(10),
-        chats: ["Global"],
+        groupChats: { Global: { name: "Global", room: "Global" } },
+        chats: {},
         createdAt: serverTimestamp(),
       };
       await setDoc(userDocRef, userData);
-      setUserDbData() 
+      setUserDbData();
       console.log("User created successfully");
     } catch (error) {
       console.error("Error creating user: ", error);
@@ -230,30 +396,161 @@ function SignIn({ setUserDbData ,setUserData, user }) {
     </>
   );
 }
-function SignOut() {
+function NavBar() {
+  const btn = useRef();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const goBack = () => {
+    console.log("Back");
+    navigate(-1);
+  };
+
   const signInOutGoogle = () => {
+    console.log("homeDelete");
     auth.signOut();
     navigate("/");
   };
+
+  useEffect(() => {
+    if (location.pathname === "/") {
+      btn.current.removeEventListener("click", goBack);
+      btn.current.addEventListener("click", signInOutGoogle);
+      console.log("home");
+    } else {
+      console.log("Not home");
+      btn.current.removeEventListener("click", signInOutGoogle);
+      btn.current.addEventListener("click", goBack);
+    }
+
+    // Cleanup event listeners on component unmount
+    return () => {
+      if (btn.current) {
+        btn.current.removeEventListener("click", goBack);
+        btn.current.removeEventListener("click", signInOutGoogle);
+      }
+    };
+  }, [location]);
+
   const openAccountInfo = () => {
     navigate("/AccountInfo");
   };
+
   return (
     <>
       <div className="container-signout">
         <button onClick={openAccountInfo}>
           <AiOutlineUser />
         </button>
-        <button onClick={signInOutGoogle}>
-          <PiSignInBold />
+        <button ref={btn}>
+          {location.pathname === "/" ? (
+            <PiSignInBold style={{ transform: "scaleX(-1)" }} />
+          ) : (
+            <FiArrowLeft />
+          )}
         </button>
       </div>
     </>
   );
 }
-function ChatRoom() {
-  const messagesRef = collection(db, "messageData", "messages", "Global");
+function ChatRoom({ userData, section, popup, getUserInfo }) {
+  const location = useLocation();
+  const room = location.state && location.state.room;
+  const messagesRef = collection(db, "messageData", "messages", room);
+  const queryRef = query(messagesRef, orderBy("createdAt", "desc"), limit(25));
+  const [messages, loading] = useCollectionData(queryRef, { idField: "id" });
+  const [chatHeight, setHeight] = useState("30vh");
+  const [formValue, setFormValue] = useState("");
+  const endOfChat = useRef();
+  const btnSend = useRef();
+  const openUserPopUp = (id) => {
+    section.current.style.filter = "blur(2px)";
+    popup.current.style.opacity = "1";
+    popup.current.style.pointerEvents = "all";
+    getUserInfo(id);
+  };
+  useEffect(() => {
+    if (loading) {
+    } else {
+      setHeight("67vh");
+    }
+  }, [loading]);
+  const sendMessage = async (e) => {
+    const uid = auth.currentUser.uid;
+    btnSend.current.children[0].style.opacity = "0";
+    btnSend.current.children[1].style.opacity = "1";
+    e.preventDefault();
+    setFormValue("");
+    await addDoc(messagesRef, {
+      text: formValue,
+      createdAt: serverTimestamp(),
+      uid,
+      identifier: userData.identifier,
+      user: userData.name,
+    });
+    //hide send button
+    btnSend.current.children[0].style.opacity = "1";
+    btnSend.current.children[1].style.opacity = "0";
+    btnSend.current.style.width = "0vh";
+    btnSend.current.style.padding = "1vh 0vh";
+    endOfChat.current.scrollIntoView({ behavior: "smooth", block: "end" });
+  };
+  const handleInputMsgChange = (e) => {
+    setFormValue(e.target.value);
+    //show send button
+    if (e.target.value.length == 0) {
+      btnSend.current.style.width = "0vh";
+      btnSend.current.style.padding = "1vh 0vh";
+      return;
+    }
+    btnSend.current.style.width = "5vh";
+    btnSend.current.style.padding = "1vh 1vh";
+  };
+
+  return (
+    <>
+      <div className="div-messages">
+        <div className="chat" style={{ "--start-height": `${chatHeight}` }}>
+          {loading ? (
+            <div className="loading-indicator">
+              <AiOutlineLoading3Quarters />
+            </div>
+          ) : (
+            <>
+              <div className="loaded-indicator">
+                <div ref={endOfChat}></div>
+                {messages &&
+                  messages.map((msg) => (
+                    <ChatMessage
+                      openUserPopUp={openUserPopUp}
+                      key={uuid()}
+                      message={msg}
+                    />
+                  ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+      <form onSubmit={sendMessage}>
+        <input
+          placeholder="Type here! :)"
+          type="text"
+          onChange={handleInputMsgChange}
+          value={formValue}
+        />
+        <button ref={btnSend} type="submit">
+          <BiSend />
+          <AiOutlineLoading3Quarters />
+        </button>
+      </form>
+    </>
+  );
+}
+function PrivateRoom({ userData }) {
+  const location = useLocation();
+  const room = location.state && location.state.room;
+  const messagesRef = collection(db, "messageData", "messages", room);
   const queryRef = query(messagesRef, orderBy("createdAt", "desc"), limit(25));
   const [messages, loading] = useCollectionData(queryRef, { idField: "id" });
   const [chatHeight, setHeight] = useState("30vh");
@@ -277,7 +574,8 @@ function ChatRoom() {
       text: formValue,
       createdAt: serverTimestamp(),
       uid,
-      user: auth.currentUser.displayName,
+      identifier: userData.identifier,
+      user: userData.name,
     });
     //hide send button
     btnSend.current.children[0].style.opacity = "1";
@@ -300,7 +598,6 @@ function ChatRoom() {
 
   return (
     <>
-      <SignOut />
       <div className="div-messages">
         <div className="chat" style={{ "--start-height": `${chatHeight}` }}>
           {loading ? (
@@ -335,96 +632,16 @@ function ChatRoom() {
     </>
   );
 }
-function PrivateChatRoom({ chatID }) {
-  const messagesRef = collection(db, "messageData", "messages", chatID);
-  const queryRef = query(messagesRef, orderBy("createdAt", "desc"), limit(25));
-  const [messages, loading] = useCollectionData(queryRef, { idField: "id" });
-  const [chatHeight, setHeight] = useState("30vh");
-  const [formValue, setFormValue] = useState("");
-  const endOfChat = useRef();
-  const btnSend = useRef();
-
-  useEffect(() => {
-    if (loading) {
-    } else {
-      setHeight("67vh");
-    }
-  }, [loading]);
-
-  const sendMessage = async (e) => {
-    const uid = auth.currentUser.uid;
-    btnSend.current.children[0].style.opacity = "0";
-    btnSend.current.children[1].style.opacity = "1";
-    e.preventDefault();
-    setFormValue("");
-    await addDoc(messagesRef, {
-      text: formValue,
-      createdAt: serverTimestamp(),
-      uid,
-      user: auth.currentUser.displayName,
-    });
-    //hide send button
-    btnSend.current.children[0].style.opacity = "1";
-    btnSend.current.children[1].style.opacity = "0";
-    btnSend.current.style.width = "0vh";
-    btnSend.current.style.padding = "1vh 0vh";
-    endOfChat.current.scrollIntoView({ behavior: "smooth", block: "end" });
-  };
-  const handleInputMsgChange = (e) => {
-    setFormValue(e.target.value);
-    //show send button
-    if (e.target.value.length == 0) {
-      btnSend.current.style.width = "0vh";
-      btnSend.current.style.padding = "1vh 0vh";
-      return;
-    }
-    btnSend.current.style.width = "5vh";
-    btnSend.current.style.padding = "1vh 1vh";
-  };
-
-  return (
-    <>
-      <SignOut />
-      <div className="div-messages">
-        <div className="chat" style={{ "--start-height": `${chatHeight}` }}>
-          {loading ? (
-            <div className="loading-indicator">
-              <AiOutlineLoading3Quarters />
-            </div>
-          ) : (
-            <>
-              <div className="loaded-indicator">
-                <div ref={endOfChat}></div>
-                {messages &&
-                  messages.map((msg) => (
-                    <ChatMessage key={uuid()} message={msg} />
-                  ))}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-      <form onSubmit={sendMessage}>
-        <input
-          placeholder="Type here! :)"
-          type="text"
-          onChange={handleInputMsgChange}
-          value={formValue}
-        />
-        <button ref={btnSend} type="submit">
-          <BiSend />
-          <AiOutlineLoading3Quarters />
-        </button>
-      </form>
-    </>
-  );
-}
-function ChatMessage({ message }) {
-  const { text, uid, user } = message;
+function ChatMessage({ message, openUserPopUp }) {
+  const { text, uid, user, identifier } = message;
   const messageClass = uid === auth.currentUser.uid ? "sent" : "recieved";
   return (
-    <div className={messageClass}>
+    <div
+      onClick={openUserPopUp && (() => openUserPopUp(identifier))}
+      className={messageClass}
+    >
       <h2>{user}</h2>
+      <h3>{identifier}</h3>
       <p translate="no">{text}</p>
     </div>
   );
@@ -460,7 +677,7 @@ function AccountInfo({ userData, section, popup }) {
                   <FiCopy />
                 </button>
               </h4>
-              <h2>{auth.currentUser.displayName}</h2>
+              <h2>{userData.name}</h2>
               <h3>{auth.currentUser.email}</h3>
               <div className="container-account-created">
                 <div>
@@ -556,6 +773,46 @@ function PopUp({ userData, divRef, section, setUserData }) {
       ) : (
         <></>
       )}
+    </>
+  );
+}
+function UserInfoPopUp({ divRef, section, userInfo, userData, startChat }) {
+  const closePopUp = () => {
+    section.current.style.filter = "blur(0px)";
+    divRef.current.style.opacity = "0";
+    divRef.current.style.pointerEvents = "none";
+  };
+  return (
+    <>
+      <div ref={divRef} className="user-info-popup">
+        {userInfo && userData ? (
+          <>
+            <button onClick={closePopUp}>
+              <TbArrowBackUp />
+            </button>
+            <div>
+              <div>
+                <PiUserBold />
+              </div>
+              <h2>{userInfo.name}</h2>
+              <h3>{userInfo.identifier}</h3>
+            </div>
+            {userInfo.identifier !== userData.identifier ? (
+              <button onClick={startChat}>
+                Iniciar Conversa <PiChatDotsLight />
+              </button>
+            ) : (
+              <></>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="loading-indicator">
+              <AiOutlineLoading3Quarters />
+            </div>
+          </>
+        )}
+      </div>
     </>
   );
 }

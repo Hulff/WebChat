@@ -16,6 +16,17 @@
     opacity: 1;
   }
 }
+@keyframes slowAppear {
+  0% {
+    top: -25px;
+  }
+  50% {
+    top: 4px;
+  }
+  100% {
+    top: 0px;
+  }
+}
 .Main {
   display: flex;
   width: 100%;
@@ -24,8 +35,60 @@
   justify-content: flex-start;
   align-items: center;
 }
+.menu {
+  margin: 2vh 5%;
+}
+.menu > ul {
+  overflow-x: clip;
+  height: fit-content;
+  max-height: 16vh;
+  padding: 0;
+  overflow-y: scroll;
+  margin: 0;
+  list-style: none;
+}
+.menu > ul > li {
+}
+.menu > ul > li > button {
+  animation: slowAppear 0.6s linear forwards;
+  position: relative;
+  font-weight: bold;
+  border: none;
+  transition: background 0.6s;
+  color: white;
+  padding: 3%;
+  margin: 1vh 5% 0 0;
+  border-radius: 1vh;
+  background: rgb(19, 210, 191);
+  width: 98%;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.menu > button > svg {
+  font-size: 3vh;
+  margin-right: 1%;
+}
+.menu > button {
+  font-weight: bold;
+  border: none;
+  transition: background 0.6s;
+  color: white;
+  padding: 3%;
+  margin: 1vh 5% 0.7vh 0;
+  border-radius: 1vh;
+  background: rgb(14 171 155);
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+}
+
 section {
-  transition: filter 0.5s;
+  transition: filter 0.4s;
   display: flex;
   height: 85vh;
   width: 100%;
@@ -86,7 +149,9 @@ h1 {
   background: rgb(19, 210, 191);
   border-radius: 1vh 0vh 0vh 1vh;
 }
-.container-signout > button:nth-child(1):hover {
+.container-signout > button:nth-child(1):hover,
+.menu > button:hover,
+.menu > ul > li > button:hover {
   background: rgba(19, 210, 191, 0.5);
 }
 .container-signout > button:nth-child(2):hover {
@@ -96,7 +161,6 @@ h1 {
   pointer-events: none;
   margin-right: 2%;
   font-size: 3vh;
-  transform: scaleX(-1);
 }
 form {
   display: flex;
@@ -159,25 +223,35 @@ form > button > svg:nth-child(2) {
 }
 .sent {
   height: fit-content;
-  margin: 0;
-  width: 100%;
+  margin-left: auto;
+  max-width: 70%;
+  width: fit-content;
   display: flex;
   align-items: flex-end;
   flex-direction: column;
 }
 .recieved {
   height: fit-content;
-  margin: 0;
-  width: 100%;
+  margin-right: auto;
+  max-width: 70%;
+  width: fit-content;
   display: flex;
   align-items: flex-start;
   flex-direction: column;
 }
 .sent > h2,
 .recieved > h2 {
+  cursor: pointer;
   color: white;
   font-size: 1.7vh;
   margin: 0.3vh 1vh 0.3vh 1vh;
+}
+.sent > h3,
+.recieved > h3 {
+  cursor: pointer;
+  color: gray;
+  margin: 0;
+  font-size: 1.2vh;
 }
 p {
   margin: 1vh 0;
@@ -185,9 +259,10 @@ p {
   text-align: start;
   background: white;
   width: fit-content;
-  max-width: 40%;
+  max-width: 70%;
   padding: 1vh 2vh 1.5vh 2vh;
   font-size: 1.7vh;
+  pointer-events: none;
 }
 .sent > p {
   border-radius: 1vh 1vh 0vh 1vh;
@@ -200,19 +275,22 @@ p {
   width: 100%;
   margin-bottom: 6vh;
 }
-.loaded-indicator::-webkit-scrollbar {
+.loaded-indicator::-webkit-scrollbar,
+.menu > ul::-webkit-scrollbar {
   /* Largura e altura da barra de rolagem */
   width: 3.5px;
   height: 8px;
 }
 
-.loaded-indicator::-webkit-scrollbar-thumb {
+.loaded-indicator::-webkit-scrollbar-thumb,
+.menu > ul::-webkit-scrollbar-thumb {
   /* Estilo do polegar (parte da barra de rolagem que é arrastada) */
   background-color: rgb(19, 210, 191);
   border-radius: 1px;
 }
 
-.loaded-indicator::-webkit-scrollbar-track {
+.loaded-indicator::-webkit-scrollbar-track,
+.menu > ul::-webkit-scrollbar-track {
   /* Estilo da área de fundo da barra de rolagem */
   background-color: #f5f5f500;
 }
@@ -248,7 +326,6 @@ p {
   padding-left: 5%;
   animation: increase 0.6s linear forwards;
   transition: height 1s;
-  border: 2.5px solid rgb(19, 210, 191);
   border-top: none;
 }
 .container-account-header {
@@ -345,7 +422,8 @@ p {
 .container-account-created > h3:nth-child(3) {
   text-align: center;
 }
-.container-account-created:hover {
+.container-account-created:hover,
+.user-info-popup > button:nth-child(3):hover {
   cursor: pointer;
   background: rgba(19, 210, 191, 0.5);
 }
@@ -375,7 +453,8 @@ p {
   font-size: 2.1vh;
 }
 .container-account-delete:hover,
-.account-delete-popup > button:nth-child(1):hover {
+.account-delete-popup > button:nth-child(1):hover,
+.user-info-popup > button:nth-child(1):hover {
   cursor: pointer;
   background: rgba(255, 0, 0, 0.5);
 }
@@ -442,4 +521,85 @@ p {
   border-radius: 0.4vh;
   font-weight: bold;
   background: red;
+}
+.user-info-popup {
+  font-size: 2vh;
+  pointer-events: none;
+  transition: opacity 0.5s;
+  opacity: 0;
+  height: 34vh;
+  display: flex;
+  width: 60%;
+  padding: 1vh 10% 3vh 10%;
+  left: 10%;
+  top: 25%;
+  border: 1px solid rgb(19, 210, 191);
+  border-radius: 2vh;
+  background: #1e1e1e;
+  position: fixed;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  align-content: center;
+  flex-wrap: wrap;
+}
+.user-info-popup > button:nth-child(1) {
+  display: flex;
+  font-size: 2.5vh;
+  margin-right: auto;
+  width: fit-content;
+  align-items: center;
+  transition: background 0.6s, opacity 0.7s;
+  color: white;
+  padding: 1vh;
+  border: none;
+  border-radius: 0.4vh;
+  font-weight: bold;
+  background: red;
+}
+.user-info-popup > button:nth-child(3) {
+  font-weight: bold;
+  width: 25vh;
+  display: flex;
+  transition: background 0.6s, opacity 0.7s;
+  background: rgb(19, 210, 191);
+  color: white;
+  border: none;
+  padding: 1vh 1.6vh;
+  font-size: 2vh;
+  border-radius: 0.5vh;
+  align-items: center;
+  justify-content: center;
+}
+.user-info-popup > button:nth-child(3) > svg {
+  font-size: 3vh;
+  margin-left: 3%;
+  pointer-events: none;
+}
+.user-info-popup > div {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.user-info-popup > div > h2 {
+  margin: 2vh 0 0 0;
+  color: white;
+  text-align: center;
+  font-size: 2vh;
+}
+.user-info-popup > div > h3 {
+  color: rgb(217, 217, 217);
+  text-align: center;
+  font-size: 1.4vh;
+  margin: 0.2vh 0 3vh 0;
+}
+.user-info-popup > div > div > svg {
+  margin: 1vh 0 0 0;
+  border-radius: 3vh;
+  padding: 2vh;
+  background: rgb(19, 210, 191);
+  color: white;
+  font-size: 6vh;
 }

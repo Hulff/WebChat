@@ -140,6 +140,7 @@ function App() {
           room: roomId,
         },
       },
+      chatsWith: [...userData.chatsWith, userInfo.uid],
     }).then(async () => {
       await updateDoc(anotherUserDocRef, {
         chats: {
@@ -149,13 +150,13 @@ function App() {
             room: roomId,
           },
         },
+        chatsWith: [...userInfo.chatsWith, userData.uid],
       }).then(() => {
         closePopUp();
         navigate("/");
       });
     });
   };
-
   useEffect(() => {
     if (user) {
       setUserDbData();
@@ -244,7 +245,14 @@ function App() {
               {user && userData ? (
                 <>
                   <NavBar />
-                  <PrivateRoom userData={userData} />
+                  <PrivateRoom
+                    section={sectionChatRoom}
+                    divRef={userPopup}
+                    userInfo={userInfo}
+                    userData={userData}
+                    setUserData={setUserData}
+                    startChat={startChat}
+                  />
                 </>
               ) : (
                 <>
@@ -366,6 +374,7 @@ function SignIn({ setUserDbData, setUserData, user }) {
         identifier: "@" + generateRandomCode(10),
         groupChats: { Global: { name: "Global", room: "Global" } },
         chats: {},
+        chatsWith: [],
         createdAt: serverTimestamp(),
       };
       await setDoc(userDocRef, userData);
@@ -547,7 +556,7 @@ function ChatRoom({ userData, section, popup, getUserInfo }) {
     </>
   );
 }
-function PrivateRoom({ userData }) {
+function PrivateRoom({ userData, section, popup, getUserInfo }) {
   const location = useLocation();
   const room = location.state && location.state.room;
   const messagesRef = collection(db, "messageData", "messages", room);
@@ -557,7 +566,12 @@ function PrivateRoom({ userData }) {
   const [formValue, setFormValue] = useState("");
   const endOfChat = useRef();
   const btnSend = useRef();
-
+  const openUserPopUp = (id) => {
+    section.current.style.filter = "blur(2px)";
+    popup.current.style.opacity = "1";
+    popup.current.style.pointerEvents = "all";
+    getUserInfo(id);
+  };
   useEffect(() => {
     if (loading) {
     } else {
@@ -610,7 +624,11 @@ function PrivateRoom({ userData }) {
                 <div ref={endOfChat}></div>
                 {messages &&
                   messages.map((msg) => (
-                    <ChatMessage key={uuid()} message={msg} />
+                    <ChatMessage
+                      openUserPopUp={openUserPopUp}
+                      key={uuid()}
+                      message={msg}
+                    />
                   ))}
               </div>
             </>
@@ -782,6 +800,13 @@ function UserInfoPopUp({ divRef, section, userInfo, userData, startChat }) {
     divRef.current.style.opacity = "0";
     divRef.current.style.pointerEvents = "none";
   };
+  const checkIfChat = () => {
+    let list = userData.chatsWith
+    if (list.includes(userInfo.uid)) {
+      return;
+    }
+    return true;
+  };
   return (
     <>
       <div ref={divRef} className="user-info-popup">
@@ -797,7 +822,7 @@ function UserInfoPopUp({ divRef, section, userInfo, userData, startChat }) {
               <h2>{userInfo.name}</h2>
               <h3>{userInfo.identifier}</h3>
             </div>
-            {userInfo.identifier !== userData.identifier ? (
+            {userInfo.identifier !== userData.identifier && checkIfChat() ? (
               <button onClick={startChat}>
                 Iniciar Conversa <PiChatDotsLight />
               </button>

@@ -191,6 +191,8 @@ function App() {
       console.log(user2);
       await setDoc(userDocRef, user1);
       await setDoc(anotherUserDocRef, user2);
+      await deleteDoc(chatDocRef);
+
       closeDeleteChatPopUp();
     } else {
       //remove only the user

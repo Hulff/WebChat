@@ -42,7 +42,7 @@ import {
   PiUserBold,
   PiChatDotsLight,
 } from "react-icons/pi";
-import { FiCopy, FiArrowLeft } from "react-icons/fi";
+import { FiCopy, FiArrowLeft, FiTrash2 } from "react-icons/fi";
 import {
   AiOutlineLoading3Quarters,
   AiOutlineUserAdd,
@@ -81,8 +81,11 @@ function App() {
   const [userInfo, setUserInfo] = useState(null);
   const section = useRef();
   const sectionChatRoom = useRef();
+  const sectionMenu = useRef();
   const popup = useRef();
   const userPopup = useRef();
+  const chatDeletePopup = useRef();
+  const roomRef = useRef();
   const setUserDbData = async () => {
     const usersCollection = collection(db, "users");
     const userDocRef = doc(usersCollection, auth.currentUser.uid);
@@ -93,12 +96,8 @@ function App() {
         setUserData(null);
       }
     });
-
     return unsubscribe; // Retorna uma função para cancelar a inscrição do listener
   };
-
-  // ...
-
   useEffect(() => {
     if (user) {
       const unsubscribe = setUserDbData();
@@ -108,6 +107,11 @@ function App() {
     sectionChatRoom.current.style.filter = "blur(0px)";
     userPopup.current.style.opacity = "0";
     userPopup.current.style.pointerEvents = "none";
+  };
+  const closeDeleteChatPopUp = () => {
+    sectionMenu.current.style.filter = "blur(0px)";
+    chatDeletePopup.current.style.opacity = "0";
+    chatDeletePopup.current.style.pointerEvents = "none";
   };
   const getUserInfo = async (id) => {
     setUserInfo(null);
@@ -130,13 +134,19 @@ function App() {
   const startChat = async () => {
     let roomId = uuid();
     const usersCollection = collection(db, "users");
+    const chatCollection = collection(db, "chatsData");
+    const chatDocRef = doc(chatCollection, roomId);
     const userDocRef = doc(usersCollection, userData.uid);
     const anotherUserDocRef = doc(usersCollection, userInfo.uid);
+    let chatData = {
+      type: "private",
+      users: [userInfo.uid, userData.uid],
+    };
     await updateDoc(userDocRef, {
       chats: {
         ...userData.chats,
         [`${roomId}`]: {
-          name: `conversa com ${userInfo.name}`,
+          name: `Conversa com ${userInfo.name}`,
           room: roomId,
         },
       },
@@ -146,16 +156,51 @@ function App() {
         chats: {
           ...userInfo.chats,
           [`${roomId}`]: {
-            name: `conversa com ${userData.name}`,
+            name: `Conversa com ${userData.name}`,
             room: roomId,
           },
         },
         chatsWith: [...userInfo.chatsWith, userData.uid],
-      }).then(() => {
+      }).then(async () => {
+        await setDoc(chatDocRef, chatData);
         closePopUp();
         navigate("/");
       });
     });
+  };
+  const deleteChat = async () => {
+    const chatCollection = collection(db, "chatsData");
+    const chatDocRef = doc(chatCollection, roomRef.current);
+    const docData = await getDoc(chatDocRef);
+    let data = docData.data();
+    console.log(data);
+    if (data.type == "private") {
+      //exclude chat
+      const usersCollection = collection(db, "users");
+      const userDocRef = doc(usersCollection, data.users[0]);
+      const anotherUserDocRef = doc(usersCollection, data.users[1]);
+      const user1DocData = await getDoc(userDocRef);
+      const user2DocData = await getDoc(anotherUserDocRef);
+      let user1 = user1DocData.data();
+      let user2 = user2DocData.data();
+      delete user1.chats[roomRef.current];
+      user1.chatsWith = user1.chatsWith.filter((n) => n != user2.uid);
+      delete user2.chats[roomRef.current];
+      user2.chatsWith = user2.chatsWith.filter((n) => n != user1.uid);
+      console.log(user1);
+      console.log(user2);
+      await setDoc(userDocRef, user1);
+      await setDoc(anotherUserDocRef, user2);
+      closeDeleteChatPopUp();
+    } else {
+      //remove only the user
+    }
+    // console.log(userData);
+    // const usersCollection = collection(db, "users");
+    // const userDocRef = doc(usersCollection, userData.uid);
+    // const anotherUserDocRef = doc(usersCollection, userInfo.uid);
+    // let user1 = userDocRef.data();
+    // console.log(userDocRef.data());
   };
   useEffect(() => {
     if (user) {
@@ -183,11 +228,16 @@ function App() {
         path="/"
         element={
           <div className="Main">
-            <section>
+            <section ref={sectionMenu}>
               {user && userData ? (
                 <>
                   <NavBar />
-                  <Menu userData={userData} />
+                  <Menu
+                    roomRef={roomRef}
+                    userData={userData}
+                    section={sectionMenu}
+                    popup={chatDeletePopup}
+                  />
                 </>
               ) : (
                 <>
@@ -199,6 +249,16 @@ function App() {
                 </>
               )}
             </section>
+            {userData ? (
+              <DeleteChatPopUp
+                section={sectionMenu}
+                divRef={chatDeletePopup}
+                userData={userData}
+                deleteChat={deleteChat}
+              />
+            ) : (
+              <></>
+            )}
           </div>
         }
       />
@@ -295,8 +355,15 @@ function App() {
     </Routes>
   );
 }
-function Menu({ userData }) {
+function Menu({ userData, section, popup, roomRef }) {
   const navigate = useNavigate();
+  const openDeleteChatPopUp = (room) => {
+    section.current.style.filter = "blur(2px)";
+    popup.current.style.opacity = "1";
+    popup.current.style.pointerEvents = "all";
+    console.log(room);
+    roomRef.current = room;
+  };
   return (
     <>
       <div className={"menu"}>
@@ -307,15 +374,24 @@ function Menu({ userData }) {
         <ul>
           {Object.keys(userData.groupChats).map((key) => (
             <li key={uuid()}>
-              <button
-                onClick={() =>
-                  navigate("chatRoom", {
-                    state: { room: userData.groupChats[key].room },
-                  })
-                }
-              >
-                {userData.groupChats[key].name}
-              </button>
+              <div>
+                <h5
+                  onClick={() =>
+                    navigate("chatRoom", {
+                      state: { room: userData.groupChats[key].room },
+                    })
+                  }
+                >
+                  {userData.groupChats[key].name}
+                </h5>
+                {key !== "Global" ? (
+                  <button>
+                    <FiTrash2 />
+                  </button>
+                ) : (
+                  <></>
+                )}
+              </div>
             </li>
           ))}
         </ul>
@@ -328,15 +404,22 @@ function Menu({ userData }) {
         <ul>
           {Object.keys(userData.chats).map((key) => (
             <li key={uuid()}>
-              <button
-                onClick={() =>
-                  navigate("PrivateChatRoom", {
-                    state: { room: userData.chats[key].room },
-                  })
-                }
-              >
-                {userData.chats[key].name}
-              </button>
+              <div>
+                <h5
+                  onClick={() =>
+                    navigate("PrivateChatRoom", {
+                      state: { room: userData.chats[key].room },
+                    })
+                  }
+                >
+                  {userData.chats[key].name}
+                </h5>
+                <button
+                  onClick={() => openDeleteChatPopUp(userData.chats[key].room)}
+                >
+                  <FiTrash2 />
+                </button>
+              </div>
             </li>
           ))}
         </ul>
@@ -502,6 +585,10 @@ function ChatRoom({ userData, section, popup, getUserInfo }) {
     btnSend.current.children[1].style.opacity = "0";
     btnSend.current.style.width = "0vh";
     btnSend.current.style.padding = "1vh 0vh";
+    setTimeout(() => {
+      btnSend.current.style.right = "10%";
+    }, 200);
+
     endOfChat.current.scrollIntoView({ behavior: "smooth", block: "end" });
   };
   const handleInputMsgChange = (e) => {
@@ -510,8 +597,12 @@ function ChatRoom({ userData, section, popup, getUserInfo }) {
     if (e.target.value.length == 0) {
       btnSend.current.style.width = "0vh";
       btnSend.current.style.padding = "1vh 0vh";
+      setTimeout(() => {
+        btnSend.current.style.right = "10%";
+      }, 200);
       return;
     }
+    btnSend.current.style.right = "0%";
     btnSend.current.style.width = "5vh";
     btnSend.current.style.padding = "1vh 1vh";
   };
@@ -566,12 +657,6 @@ function PrivateRoom({ userData, section, popup, getUserInfo }) {
   const [formValue, setFormValue] = useState("");
   const endOfChat = useRef();
   const btnSend = useRef();
-  const openUserPopUp = (id) => {
-    section.current.style.filter = "blur(2px)";
-    popup.current.style.opacity = "1";
-    popup.current.style.pointerEvents = "all";
-    getUserInfo(id);
-  };
   useEffect(() => {
     if (loading) {
     } else {
@@ -596,6 +681,10 @@ function PrivateRoom({ userData, section, popup, getUserInfo }) {
     btnSend.current.children[1].style.opacity = "0";
     btnSend.current.style.width = "0vh";
     btnSend.current.style.padding = "1vh 0vh";
+    setTimeout(() => {
+      btnSend.current.style.right = "10%";
+    }, 200);
+
     endOfChat.current.scrollIntoView({ behavior: "smooth", block: "end" });
   };
   const handleInputMsgChange = (e) => {
@@ -604,8 +693,13 @@ function PrivateRoom({ userData, section, popup, getUserInfo }) {
     if (e.target.value.length == 0) {
       btnSend.current.style.width = "0vh";
       btnSend.current.style.padding = "1vh 0vh";
+      setTimeout(() => {
+        btnSend.current.style.right = "10%";
+      }, 200);
+
       return;
     }
+    btnSend.current.style.right = "0%";
     btnSend.current.style.width = "5vh";
     btnSend.current.style.padding = "1vh 1vh";
   };
@@ -624,11 +718,7 @@ function PrivateRoom({ userData, section, popup, getUserInfo }) {
                 <div ref={endOfChat}></div>
                 {messages &&
                   messages.map((msg) => (
-                    <ChatMessage
-                      openUserPopUp={openUserPopUp}
-                      key={uuid()}
-                      message={msg}
-                    />
+                    <ChatMessage key={uuid()} message={msg} />
                   ))}
               </div>
             </>
@@ -801,7 +891,7 @@ function UserInfoPopUp({ divRef, section, userInfo, userData, startChat }) {
     divRef.current.style.pointerEvents = "none";
   };
   const checkIfChat = () => {
-    let list = userData.chatsWith
+    let list = userData.chatsWith;
     if (list.includes(userInfo.uid)) {
       return;
     }
@@ -829,6 +919,41 @@ function UserInfoPopUp({ divRef, section, userInfo, userData, startChat }) {
             ) : (
               <></>
             )}
+          </>
+        ) : (
+          <>
+            <div className="loading-indicator">
+              <AiOutlineLoading3Quarters />
+            </div>
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+function DeleteChatPopUp({ divRef, section, userData, deleteChat }) {
+  const closePopUp = () => {
+    section.current.style.filter = "blur(0px)";
+    divRef.current.style.opacity = "0";
+    divRef.current.style.pointerEvents = "none";
+  };
+  return (
+    <>
+      <div ref={divRef} className="user-info-popup">
+        {userData ? (
+          <>
+            <button onClick={closePopUp}>
+              <TbArrowBackUp />
+            </button>
+            <div>
+              <h2>Certeza que você quer deletar esta conversa?</h2>
+            </div>
+            <button onClick={deleteChat} className="chat-delete-bnt-confirm">
+              Sim
+            </button>
+            <button className="chat-delete-bnt-deny" onClick={closePopUp}>
+              Não
+            </button>
           </>
         ) : (
           <>

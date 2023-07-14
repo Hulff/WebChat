@@ -18,6 +18,7 @@
 }
 @keyframes slowAppear {
   0% {
+    oapcity: 0;
     top: -25px;
   }
   50% {
@@ -25,6 +26,7 @@
   }
   100% {
     top: 0px;
+    oapcity: 1;
   }
 }
 .Main {
@@ -36,7 +38,7 @@
   align-items: center;
 }
 .menu {
-  margin: 2vh 5%;
+  margin: 1.5vh 5% 0vh 5%;
 }
 .menu > ul {
   overflow-x: clip;
@@ -49,7 +51,9 @@
 }
 .menu > ul > li {
 }
-.menu > ul > li > button {
+.menu > ul > li > div {
+  text-align: start;
+  word-break: break-word;
   animation: slowAppear 0.6s linear forwards;
   position: relative;
   font-weight: bold;
@@ -60,11 +64,31 @@
   margin: 1vh 5% 0 0;
   border-radius: 1vh;
   background: rgb(19, 210, 191);
-  width: 98%;
+  width: 94%;
   display: flex;
   flex-direction: row;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
+}
+.menu > ul > li > div > h5 {
+  font-weight: bold;
+  font-size: 1.7vh;
+  margin: 0.5vh 0 0.5vh 0.5vh;
+  width: 100%;
+}
+.menu > ul > li > div > button {
+  font-weight: bold;
+  font-size: 2vh;
+  border: none;
+  transition: background 0.6s;
+  color: white;
+  padding: 2% 2%;
+  border-radius: 0.4vh;
+  background: rgb(17, 184, 167);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .menu > button > svg {
@@ -151,9 +175,11 @@ h1 {
 }
 .container-signout > button:nth-child(1):hover,
 .menu > button:hover,
-.menu > ul > li > button:hover {
-  background: rgba(19, 210, 191, 0.5);
+.menu > ul > li > div:hover,
+.menu > ul > li > div > button:hover {
+  background: rgba(13, 147, 134, 0.802);
 }
+
 .container-signout > button:nth-child(2):hover {
   background: rgba(255, 0, 0, 0.5);
 }
@@ -183,7 +209,8 @@ form > input:focus-visible {
   outline: none;
 }
 form > button {
-  position: fixed;
+  right: 10%;
+  position: ABSOLUTE;
   transition: width 0.25s, padding 0.25s;
   display: flex;
   text-align: center;
@@ -197,7 +224,8 @@ form > button {
   justify-content: center;
   height: 5vh;
 }
-button:hover {
+button:hover,
+.menu > ul > li > div > h5:hover {
   cursor: pointer;
 }
 button:disabled {
@@ -454,7 +482,8 @@ p {
 }
 .container-account-delete:hover,
 .account-delete-popup > button:nth-child(1):hover,
-.user-info-popup > button:nth-child(1):hover {
+.user-info-popup > button:nth-child(1):hover,
+.chat-delete-bnt-deny:hover {
   cursor: pointer;
   background: rgba(255, 0, 0, 0.5);
 }
@@ -571,6 +600,25 @@ p {
   align-items: center;
   justify-content: center;
 }
+.chat-delete-bnt-confirm {
+  margin-top: 2vh;
+}
+.chat-delete-bnt-deny {
+  margin-top: 2vh;
+  font-weight: bold;
+  width: 25vh;
+  display: flex;
+  transition: background 0.6s, opacity 0.7s;
+  background: red;
+  color: white;
+  border: none;
+  padding: 1vh 1.6vh;
+  font-size: 2vh;
+  border-radius: 0.5vh;
+  align-items: center;
+  justify-content: center;
+}
+
 .user-info-popup > button:nth-child(3) > svg {
   font-size: 3vh;
   margin-left: 3%;
@@ -589,6 +637,7 @@ p {
   text-align: center;
   font-size: 2vh;
 }
+
 .user-info-popup > div > h3 {
   color: rgb(217, 217, 217);
   text-align: center;
